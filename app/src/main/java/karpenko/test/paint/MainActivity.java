@@ -4,6 +4,8 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
+import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.os.Environment;
 import android.widget.ImageButton;
@@ -18,16 +20,23 @@ import com.karumi.dexter.listener.PermissionRequest;
 import com.karumi.dexter.listener.multi.MultiplePermissionsListener;
 import com.kyanogen.signatureview.SignatureView;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 import yuku.ambilwarna.AmbilWarnaDialog;
 
 
 public class MainActivity extends AppCompatActivity {
 
-    private static String fileName;
-    File path = new File(Environment.getExternalStorageDirectory().getAbsolutePath() + "/Paint");
+
+    File path = new File(Environment.getExternalStorageDirectory().getAbsolutePath() + "/myPictures");
+
 
     SignatureView signatureView;
     ImageButton eraserImg, colorImg, saveImg;
@@ -50,9 +59,15 @@ public class MainActivity extends AppCompatActivity {
 
         askStoragePermission();
 
+
+        if (!path.exists()) {
+            path.mkdir();
+        }
+
         defaultColor = ContextCompat.getColor(MainActivity.this,R.color.black);
 
         seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @SuppressLint("SetTextI18n")
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 penSizeInfo.setText(progress + "");
@@ -71,16 +86,47 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        eraserImg.setOnClickListener(v -> {
-            signatureView.clearCanvas();
+        saveImg.setOnClickListener(v->{
+            if (!signatureView.isBitmapEmpty()){
+                try {
+                    saveImage();
+                } catch (IOException e) {
+                    System.out.println(e.getMessage());
+                    e.printStackTrace();
+                    Toast.makeText(MainActivity.this,"Not saved", Toast.LENGTH_SHORT).show();
+                }
+            }
         });
 
-        colorImg.setOnClickListener(v -> {
-            openColorPicker();
-        });
+        eraserImg.setOnClickListener(v -> signatureView.clearCanvas());
+
+        colorImg.setOnClickListener(v -> openColorPicker());
 
     }
 
+    private void saveImage() throws IOException {
+
+        SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault());
+
+        String date = format.format(new Date());
+
+        String fileName = path + "/" + date + ".png";
+
+        File file = new File(fileName);
+
+        Bitmap bitmap = signatureView.getSignatureBitmap();
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.PNG, 0,bos);
+        byte[] bitmapData = bos.toByteArray();
+
+        FileOutputStream fos = new FileOutputStream(file);
+
+        fos.write(bitmapData);
+        fos.flush();
+        fos.close();
+        Toast.makeText(this,"Saved", Toast.LENGTH_SHORT).show();
+
+    }
 
 
     private void openColorPicker() {
@@ -110,7 +156,7 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onPermissionRationaleShouldBeShown(List<PermissionRequest> list, PermissionToken permissionToken) {
-                permissionToken.cancelPermissionRequest();
+                permissionToken.continuePermissionRequest();
             }
         }).check();
 
